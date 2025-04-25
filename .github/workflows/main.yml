@@ -1,0 +1,79 @@
+name: Full Stack App CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: myapp
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: yourpassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://postgres:yourpassword@localhost:5432/myapp
+      PGUSER: postgres
+      PGPASSWORD: yourpassword
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: myapp
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm install
+
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm install
+
+      - name: Wait for Postgres to be ready
+        run: |
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Waiting for Postgres..."
+            sleep 2
+          done
+
+      - name: Create users table
+        run: |
+          psql -h localhost -U postgres -d myapp -c "
+            CREATE TABLE IF NOT EXISTS users (
+              id SERIAL PRIMARY KEY,
+              name TEXT NOT NULL,
+              email TEXT NOT NULL
+            );
+          "
+
+      - name: Run backend test (manual placeholder)
+        run: echo "Run backend tests here (e.g., Jest or integration tests)"
+
+      - name: Run frontend build
+        working-directory: ./frontend
+        run: npm run build
+
+      # Optional deployment steps
+      # - name: Deploy...
+      #   run: echo "Add deployment script here"
