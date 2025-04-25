@@ -1,4 +1,4 @@
-name: Full Stack App CI
+name: Build, Test, and Deploy Full Stack App
 
 on:
   push:
@@ -7,73 +7,71 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-test:
+  build-test-deploy:
     runs-on: ubuntu-latest
 
     services:
-      postgres:
-        image: postgres:14
+      mysql:
+        image: mysql:8
         env:
-          POSTGRES_DB: myapp
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: yourpassword
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: myapp
+          MYSQL_USER: user
+          MYSQL_PASSWORD: password
         ports:
-          - 5432:5432
+          - 3306:3306
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     env:
-      DATABASE_URL: postgres://postgres:yourpassword@localhost:5432/myapp
-      PGUSER: postgres
-      PGPASSWORD: yourpassword
-      PGHOST: localhost
-      PGPORT: 5432
-      PGDATABASE: myapp
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: myapp
 
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '18'
 
-      - name: Install frontend dependencies
-        working-directory: ./frontend
-        run: npm install
+      # Optional: Show directory structure for debugging
+      - name: List files
+        run: ls -R
 
+      # ⬇️ BACKEND
       - name: Install backend dependencies
         working-directory: ./backend
         run: npm install
 
-      - name: Wait for Postgres to be ready
-        run: |
-          until pg_isready -h localhost -p 5432 -U postgres; do
-            echo "Waiting for Postgres..."
-            sleep 2
-          done
+      - name: Run backend tests
+        working-directory: ./backend
+        run: npm test
 
-      - name: Create users table
-        run: |
-          psql -h localhost -U postgres -d myapp -c "
-            CREATE TABLE IF NOT EXISTS users (
-              id SERIAL PRIMARY KEY,
-              name TEXT NOT NULL,
-              email TEXT NOT NULL
-            );
-          "
+      - name: Build backend
+        working-directory: ./backend
+        run: npm run build
 
-      - name: Run backend test (manual placeholder)
-        run: echo "Run backend tests here (e.g., Jest or integration tests)"
+      # ⬇️ FRONTEND
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm install
 
-      - name: Run frontend build
+      - name: Run frontend tests
+        working-directory: ./frontend
+        run: npm test
+
+      - name: Build frontend
         working-directory: ./frontend
         run: npm run build
 
-      # Optional deployment steps
-      # - name: Deploy...
-      #   run: echo "Add deployment script here"
+      # ⬇️ DEPLOY (replace with your deployment steps)
+      - name: Deploy
+        run: echo "Deploying to production..."
